@@ -24,11 +24,14 @@ jobs:
           pip install pyinstaller
 
       - name: Build with PyInstaller
-        run: |
+        run:
+          pyinstaller --onefile --windowed student_mark_analyzes.py |
           pyinstaller --onefile --windowed myschoolbusesrevised.py
+
 
       - name: Upload Windows Executable
         uses: actions/upload-artifact@v4
         with:
           name: Windows-App
           path: dist/*.exe
+
