@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>School Bus Manager</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f6f8;color:#17212b}
+header{background:#1565c0;color:white;padding:18px 16px;position:sticky;top:0;z-index:3}
+h1{font-size:22px;margin:0 0 4px}.sub{opacity:.9;font-size:13px}
+nav{display:flex;gap:6px;overflow:auto;background:white;padding:8px;position:sticky;top:73px;z-index:2;border-bottom:1px solid #ddd}
+nav button{border:0;background:#e9eef5;padding:10px 13px;border-radius:18px;white-space:nowrap}
+nav button.active{background:#1565c0;color:#fff}
+main{padding:14px;max-width:900px;margin:auto}.card{background:#fff;border-radius:12px;padding:15px;margin-bottom:12px;box-shadow:0 1px 4px #0001}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+label{font-size:12px;color:#52606d;display:block;margin-bottom:4px}input,select,textarea{width:100%;padding:10px;border:1px solid #ccd3da;border-radius:8px;font-size:15px;background:white}
+button.primary{background:#1565c0;color:#fff;border:0;padding:11px 16px;border-radius:8px;margin-top:12px}
+button.danger{background:#c62828;color:white;border:0;padding:8px 11px;border-radius:7px}
+h2{font-size:18px;margin:0 0 12px}.metric{font-size:25px;font-weight:bold}.muted{color:#667}.row{display:flex;justify-content:space-between;gap:10px;align-items:center}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:8px;border-bottom:1px solid #e3e7eb;text-align:left}
+.notice{background:#e3f2fd;padding:10px;border-radius:8px;font-size:13px}
+</style>
+</head>
+<body>
+<header><h1>School Bus Manager</h1><div class="sub">15-bus fleet management</div></header>
+<nav id="nav"></nav>
+<main id="app"></main>
+<script>
+const tabs=["Dashboard","Buses","Trips","Fuel","Maintenance","Fines","Monthly Report"];
+let state=JSON.parse(localStorage.getItem("busmgr")||'{"buses":[],"trips":[],"fuel":[],"maintenance":[],"fines":[]}');
+function save(){localStorage.setItem("busmgr",JSON.stringify(state))}
+function esc(x){return String(x??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+function money(n){return "₹"+Number(n||0).toFixed(2)}
+function nav(active){document.getElementById("nav").innerHTML=tabs.map(t=>`<button class="${t==active?'active':''}" onclick="render('${t}')">${t}</button>`).join("")}
+function field(name,label,type="text",required=false){return `<div><label>${label}</label><input id="${name}" type="${type}" ${required?"required":""}></div>`}
+function busSelect(){return `<select id="busNo"><option value="">Select bus</option>${state.buses.map(b=>`<option>${esc(b.no)}</option>`).join("")}</select>`}
+function render(tab="Dashboard"){
+ nav(tab); const a=document.getElementById("app");
+ if(tab==="Dashboard") return dashboard(a);
+ if(tab==="Buses") return buses(a);
+ if(tab==="Trips") return trips(a);
+ if(tab==="Fuel") return fuel(a);
+ if(tab==="Maintenance") return maintenance(a);
+ if(tab==="Fines") return fines(a);
+ if(tab==="Monthly Report") return report(a);
+}
+function dashboard(a){
+ const fuel=state.fuel.reduce((s,x)=>s+Number(x.total||0),0), maint=state.maintenance.reduce((s,x)=>s+Number(x.price||0),0), fines=state.fines.reduce((s,x)=>s+Number(x.amount||0),0);
+ a.innerHTML=`<div class="grid">
+ <div class="card"><div class="muted">Buses</div><div class="metric">${state.buses.length}</div></div>
+ <div class="card"><div class="muted">Trips</div><div class="metric">${state.trips.length}</div></div>
+ <div class="card"><div class="muted">Fuel Cost</div><div class="metric">${money(fuel)}</div></div>
+ <div class="card"><div class="muted">Maintenance</div><div class="metric">${money(maint)}</div></div>
+ <div class="card"><div class="muted">Fines</div><div class="metric">${money(fines)}</div></div></div>
+ <div class="card"><h2>Quick Start</h2><div class="notice">Add your 15 buses first. Then record trips, fuel, maintenance and fines. All data is stored on this device.</div></div>`;
+}
+function buses(a){
+ a.innerHTML=`<div class="card"><h2>Add Bus</h2><div class="grid">
+ ${field("no","Bus No.","text",true)}${field("reg","Bus Registration No.")}${field("capacity","Capacity","number")}
+ ${field("driver","Driver Name")}${field("driverMob","Driver Mobile No.","tel")}${field("helper","Helper Name")}${field("helperMob","Helper Mobile No.","tel")}${field("route","Route")}
+ </div><button class="primary" onclick="addBus()">Save Bus</button></div>
+ <div class="card"><h2>Bus List</h2>${state.buses.length?`<table><tr><th>Bus</th><th>Regn.</th><th>Driver</th><th>Route</th><th></th></tr>${state.buses.map((b,i)=>`<tr><td>${esc(b.no)}</td><td>${esc(b.reg)}</td><td>${esc(b.driver)}</td><td>${esc(b.route)}</td><td><button class="danger" onclick="del('buses',${i})">Delete</button></td></tr>`).join("")}</table>`:"No buses added yet."}</div>`;
+}
+function addBus(){let b={no:v("no"),reg:v("reg"),capacity:v("capacity"),driver:v("driver"),driverMob:v("driverMob"),helper:v("helper"),helperMob:v("helperMob"),route:v("route")};if(!b.no)return alert("Bus No. is required");state.buses.push(b);save();render("Buses")}
+function trips(a){
+ a.innerHTML=`<div class="card"><h2>Daily Trip</h2><div class="grid">
+ <div><label>Bus No.</label>${busSelect()}</div>${field("date","Date","date")}${field("startTime","Start Time","time")}${field("startPoint","Start Point")}
+ ${field("startOdo","Start Odometer","number")}${field("haltPoint","Halt Point")}${field("haltOdo","Halt Odometer","number")}${field("haltTime","Halt Time","time")}
+ </div><button class="primary" onclick="addTrip()">Save Trip</button></div>
+ <div class="card"><h2>Trips</h2>${tableTrips()}</div>`;
+}
+function addTrip(){let x={bus:v("busNo"),date:v("date"),startTime:v("startTime"),startPoint:v("startPoint"),startOdo:v("startOdo"),haltPoint:v("haltPoint"),haltOdo:v("haltOdo"),haltTime:v("haltTime")};if(x.bus==="")return alert("Select a bus");x.km=Math.max(0,Number(x.haltOdo)-Number(x.startOdo));state.trips.push(x);save();render("Trips")}
+function tableTrips(){return state.trips.length?`<table><tr><th>Date</th><th>Bus</th><th>Route</th><th>KM</th></tr>${state.trips.map(x=>`<tr><td>${esc(x.date)}</td><td>${esc(x.bus)}</td><td>${esc(x.startPoint)} → ${esc(x.haltPoint)}</td><td>${x.km}</td></tr>`).join("")}</table>`:"No trips recorded."}
+function fuel(a){
+ a.innerHTML=`<div class="card"><h2>Fuel Entry</h2><div class="grid"><div><label>Bus No.</label>${busSelect()}</div>${field("fdate","Date","date")}${field("litre","Fuel Litres","number")}${field("price","Fuel Price / Litre","number")}${field("station","Fuel Station")}${field("bill","Bill No.")}${field("billDate","Bill Date","date")}</div><button class="primary" onclick="addFuel()">Save Fuel</button></div>
+ <div class="card"><h2>Fuel Records</h2>${state.fuel.length?`<table><tr><th>Date</th><th>Bus</th><th>Litres</th><th>Price</th><th>Total</th></tr>${state.fuel.map(x=>`<tr><td>${esc(x.date)}</td><td>${esc(x.bus)}</td><td>${x.litre}</td><td>${money(x.price)}</td><td>${money(x.total)}</td></tr>`).join("")}</table>`:"No fuel records."}</div>`;
+}
+function addFuel(){let x={bus:v("busNo"),date:v("fdate"),litre:v("litre"),price:v("price"),station:v("station"),bill:v("bill"),billDate:v("billDate")};x.total=Number(x.litre||0)*Number(x.price||0);state.fuel.push(x);save();render("Fuel")}
+function maintenance(a){
+ a.innerHTML=`<div class="card"><h2>Maintenance</h2><div class="grid"><div><label>Bus No.</label>${busSelect()}</div>${field("mdate","Date","date")}${field("item","Maintenance Item")}${field("parts","Parts")}${field("mprice","Price","number")}${field("mbill","Bill No.")}${field("mbillDate","Bill Date","date")}</div><button class="primary" onclick="addMaintenance()">Save Maintenance</button></div>
+ <div class="card"><h2>Maintenance Records</h2>${state.maintenance.length?`<table><tr><th>Date</th><th>Bus</th><th>Item</th><th>Parts</th><th>Price</th></tr>${state.maintenance.map(x=>`<tr><td>${esc(x.date)}</td><td>${esc(x.bus)}</td><td>${esc(x.item)}</td><td>${esc(x.parts)}</td><td>${money(x.price)}</td></tr>`).join("")}</table>`:"No maintenance records."}</div>`;
+}
+function addMaintenance(){state.maintenance.push({bus:v("busNo"),date:v("mdate"),item:v("item"),parts:v("parts"),price:v("mprice"),bill:v("mbill"),billDate:v("mbillDate")});save();render("Maintenance")}
+function fines(a){
+ a.innerHTML=`<div class="card"><h2>Fine</h2><div class="grid"><div><label>Bus No.</label>${busSelect()}</div>${field("fndate","Date","date")}${field("reason","Fine / Reason")}${field("amount","Fine Amount","number")}${field("fnBill","Bill / Receipt No.")}${field("fnBillDate","Bill Date","date")}</div><button class="primary" onclick="addFine()">Save Fine</button></div>
+ <div class="card"><h2>Fine Records</h2>${state.fines.length?`<table><tr><th>Date</th><th>Bus</th><th>Reason</th><th>Amount</th></tr>${state.fines.map(x=>`<tr><td>${esc(x.date)}</td><td>${esc(x.bus)}</td><td>${esc(x.reason)}</td><td>${money(x.amount)}</td></tr>`).join("")}</table>`:"No fines recorded."}</div>`;
+}
+function addFine(){state.fines.push({bus:v("busNo"),date:v("fndate"),reason:v("reason"),amount:v("amount"),bill:v("fnBill"),billDate:v("fnBillDate")});save();render("Fines")}
+function report(a){
+ const map={};state.buses.forEach(b=>map[b.no]={km:0,fuel:0,fcost:0,maint:0,fine:0});
+ state.trips.forEach(x=>{if(map[x.bus])map[x.bus].km+=Number(x.km||0)});
+ state.fuel.forEach(x=>{if(map[x.bus]){map[x.bus].fuel+=Number(x.litre||0);map[x.bus].fcost+=Number(x.total||0)}});
+ state.maintenance.forEach(x=>{if(map[x.bus])map[x.bus].maint+=Number(x.price||0)});
+ state.fines.forEach(x=>{if(map[x.bus])map[x.bus].fine+=Number(x.amount||0)});
+ a.innerHTML=`<div class="card"><h2>Monthly / Overall Report</h2><div class="notice">The current version totals all saved records. A month filter can be added in the next version.</div><br>${state.buses.length?`<table><tr><th>Bus</th><th>KM</th><th>Fuel L</th><th>Fuel Cost</th><th>Maintenance</th><th>Fine</th><th>Total</th></tr>${Object.entries(map).map(([b,x])=>`<tr><td>${esc(b)}</td><td>${x.km}</td><td>${x.fuel.toFixed(2)}</td><td>${money(x.fcost)}</td><td>${money(x.maint)}</td><td>${money(x.fine)}</td><td>${money(x.fcost+x.maint+x.fine)}</td></tr>`).join("")}</table>`:"Add buses to see the report."}</div>`;
+}
+function v(id){return document.getElementById(id)?.value||""}
+function del(k,i){if(confirm("Delete this record?")){state[k].splice(i,1);save();render(k==="buses"?"Buses":"Dashboard")}}
+render();
+</script>
+</body>
+</html>
